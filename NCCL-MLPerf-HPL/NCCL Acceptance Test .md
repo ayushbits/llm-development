@@ -42,13 +42,76 @@ Below are the steps we used to run the NCCL Test on a H100 NVL8 cluster. The sam
 
 1. Set up the container and install NCCL Test w/ MPI.
 
-| \> srun \--pty \--container-image nvcr.io\\\#nvidia/pytorch:24.10-py3 \--container-save=${WORK\_DIR}/nvidia\_pytorch\_24.10.sqsh bash \-i\> git clone \-b v2.22.3-1 [https://github.com/NVIDIA/nccl.git](https://github.com/NVIDIA/nccl.git) \> cd nccl \> make \-j src.build \> cd ..\> git clone \-b v2.14.0 https://github.com/NVIDIA/nccl-tests.git\> cd nccl-tests\> make MPI=1 MPI\_HOME=/usr/local/mpi \-j 32\> exit *\# srun* |
-| :---- |
+```
+> srun --pty --container-image nvcr.io\#nvidia/pytorch:24.10-py3 --container-save=${WORK_DIR}/nvidia_pytorch_24.10.sqsh bash -i
+> git clone -b v2.22.3-1 https://github.com/NVIDIA/nccl.git
+> cd nccl
+> make -j src.build
+> cd ..
+> git clone -b v2.14.0 https://github.com/NVIDIA/nccl-tests.git
+> cd nccl-tests
+> make MPI=1 MPI_HOME=/usr/local/mpi -j 32
+> exit # srun
+```
 
 2. Create a Slurm script acceptance\_nccl\_tests\_ring\_simple.sh for running the NCCL test.
 
-| *\#\! /bin/bash \#SBATCH \--exclusive             \# exclusive node access \#SBATCH \--mem=0                 \# all mem avail \#SBATCH \--gpus-per-node=8 \#SBATCH \--ntasks-per-node=8**\#SBATCH \--output=%x\_%j.out**\#SBATCH \--overcommit**\#SBATCH \--comment=sysctl-sys.kernel.numa\_balancing=0,transparent\_hugepage\_defrag=never,transparent\_hugepage=never**\#SBATCH \-t 2:00:00             \# wall time* set \-xset \-e \-o pipefailNODES\=$SLURM\_JOB\_NUM\_NODESGPUS\_PER\_NODE\=${SLURM\_NTASKS\_PER\_NODE}  MAIN\_LOG\_DIR\=acceptance\_ring\_simpleWORKDIR\=$PWDLOGDIR\=$WORKDIR/$MAIN\_LOG\_DIRmkdir \-p ${LOGDIR}export NCCL\_BUILD\_PATH\=/workspace/nccl/buildexport LD\_LIBRARY\_PATH\=$NCCL\_BUILD\_PATH/lib:$LD\_LIBRARY\_PATHexport NCCL\_TEST\_PATH\=/workspace/nccl-tests/build*\#PARAMS for sweep*NCCL\_PARAMS\=" env LD\_LIBRARY\_PATH=/workspace/nccl/build/lib env NCCL\_BUFFSIZE= env NCCL\_DEBUG=INFO env NCCL\_ALGO=Ring env NCCL\_PROTO=Simple env NCCL\_TESTS\_SPLIT=MOD8 env NCCL\_P2P\_NET\_CHUNKSIZE=131072 "TESTS=(    "alltoall\_perf"    "all\_reduce\_perf"    "all\_gather\_perf"    "reduce\_scatter\_perf")TEST\_PARAMS\="-dfloat \-b8 \-e16G \-f2 \-g1"TEST\_PARAMS\_A2A\="-duint8 \-b8 \-e8G \-f2 \-g1"srun \-t5 \-N 1 \--ntasks-per-node 1 \--mpi\=pmix \--container-image\=${CONTAINER\_NAME} ${NCCL\_PARAMS} ls \-lrt ${NCCL\_TEST\_PATH}srun \-t5 \-N 1 \--ntasks-per-node 1 \--mpi\=pmix \--container-image\=${CONTAINER\_NAME} ${NCCL\_PARAMS} ldd ${NCCL\_TEST\_PATH}/all\_reduce\_perfecho XXXX STARTING SWEEP on ${NODES} nodesfor TEST in ${TESTS\[@\]};do   echo XXXX RUNNING Iteration $ITER $TEST w/ $ALGO,$PROTO on ${NODES} nodes ${GPUS} GPUs   LOGFILE\=LOG\_${TEST}\_N${NODES}n${GPUS\_PER\_NODE}\_ITER-${ITER}.txt   if \[\[ "${TEST}" \== "alltoall\_perf" \]\]; then      NCCL\_TEST\_PARAMS=$TEST\_PARAMS\_A2A   else      NCCL\_TEST\_PARAMS=$TEST\_PARAMS   fi   srun \-N ${NODES} \--ntasks-per-node ${GPUS\_PER\_NODE} \--mpi\=pmix \--container-image\=${CONTAINER\_NAME} ${NCCL\_PARAMS} ${NCCL\_TEST\_PATH}/${TEST} ${NCCL\_TEST\_PARAMS} | tee ${LOGDIR}/${LOGFILE}done |
-| :---- |
+```
+#! /bin/bash
+
+#SBATCH --exclusive             # exclusive node access
+#SBATCH --mem=0                 # all mem avail
+#SBATCH --gpus-per-node=8
+#SBATCH --ntasks-per-node=8
+#SBATCH --output=%x_%j.out
+#SBATCH --overcommit
+#SBATCH --comment=sysctl-sys.kernel.numa_balancing=0,transparent_hugepage_defrag=never,transparent_hugepage=never
+#SBATCH -t 2:00:00             # wall time
+
+set -x
+set -e -o pipefail
+
+NODES=$SLURM_JOB_NUM_NODES
+GPUS_PER_NODE=${SLURM_NTASKS_PER_NODE}
+
+MAIN_LOG_DIR=acceptance_ring_simple
+WORKDIR=$PWD
+LOGDIR=$WORKDIR/$MAIN_LOG_DIR
+mkdir -p ${LOGDIR}
+
+export NCCL_BUILD_PATH=/workspace/nccl/build
+export LD_LIBRARY_PATH=$NCCL_BUILD_PATH/lib:$LD_LIBRARY_PATH
+export NCCL_TEST_PATH=/workspace/nccl-tests/build
+
+#PARAMS for sweep
+NCCL_PARAMS=" env LD_LIBRARY_PATH=/workspace/nccl/build/lib env NCCL_BUFFSIZE= env NCCL_DEBUG=INFO env NCCL_ALGO=Ring env NCCL_PROTO=Simple env NCCL_TESTS_SPLIT=MOD8 env NCCL_P2P_NET_CHUNKSIZE=131072 "
+TESTS=(
+    "alltoall_perf"
+    "all_reduce_perf"
+    "all_gather_perf"
+    "reduce_scatter_perf"
+)
+
+TEST_PARAMS="-dfloat -b8 -e16G -f2 -g1"
+TEST_PARAMS_A2A="-duint8 -b8 -e8G -f2 -g1"
+
+srun -t5 -N 1 --ntasks-per-node 1 --mpi=pmix --container-image=${CONTAINER_NAME} ${NCCL_PARAMS} ls -lrt ${NCCL_TEST_PATH}
+srun -t5 -N 1 --ntasks-per-node 1 --mpi=pmix --container-image=${CONTAINER_NAME} ${NCCL_PARAMS} ldd ${NCCL_TEST_PATH}/all_reduce_perf
+
+echo XXXX STARTING SWEEP on ${NODES} nodes
+for TEST in ${TESTS[@]};
+do
+   echo XXXX RUNNING Iteration $ITER $TEST w/ $ALGO,$PROTO on ${NODES} nodes ${GPUS} GPUs
+   LOGFILE=LOG_${TEST}_N${NODES}n${GPUS_PER_NODE}_ITER-${ITER}.txt
+   if [[ "${TEST}" == "alltoall_perf" ]]; then
+      NCCL_TEST_PARAMS=$TEST_PARAMS_A2A
+   else
+      NCCL_TEST_PARAMS=$TEST_PARAMS
+   fi
+   srun -N ${NODES} --ntasks-per-node ${GPUS_PER_NODE} --mpi=pmix --container-image=${CONTAINER_NAME} ${NCCL_PARAMS} ${NCCL_TEST_PATH}/${TEST} ${NCCL_TEST_PARAMS} | tee ${LOGDIR}/${LOGFILE}
+done
+
+```
 
 **NOTE**: If you specify \-b8 in alltoall\_perf, all\_gather\_perf, reduce\_scatter\_perf, then the measured message size starts from (8 \* 2 \* num\_nodes)
 
