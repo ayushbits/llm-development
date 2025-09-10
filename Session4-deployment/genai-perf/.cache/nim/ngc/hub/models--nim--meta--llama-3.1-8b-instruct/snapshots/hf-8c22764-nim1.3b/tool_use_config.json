@@ -1,0 +1,6 @@
+{
+    "bot_token": "<function=",
+    "parallel_tool_calls_supported": false,
+    "output_parser": "Llama3OutputParser",
+    "builtin_tools": null
+}

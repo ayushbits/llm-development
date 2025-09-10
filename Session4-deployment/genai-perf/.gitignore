@@ -1,0 +1,7 @@
+venv
+.venv
+nim-cache
+loras
+genai-perf-artifacts
+*-genai-perf-100s-runs
+customer-tco-computation.tgz
