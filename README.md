@@ -1,12 +1,23 @@
-# Scripts and guides demonstrated during LLM sessions (NVIDIA)
-This repository contains presentations, scripts and guides presented during multiple LLM development sessions. 
-The folder structure contains notebooks and tutorial guides for each session.
+### Update 🚀
 
-`casml-notebooks` - This folder contains notebooks demonstrated during CASML workshop on LLM development by NVIDIA.
+I delivered a series of lectures on **Systems View of AI** for the **Deep Learning (Spring 2026)** course at **IIT Kharagpur**.
 
-`CASML-IISc-Slides` - This folder contains presentations by NVIDIA during CASML workshop. 
+The lecture slides are available here:  
+[large-scale-ai-lectures](https://github.com/ayushbits/large-scale-ai-lectures)
 
-### Installation
-The casml-notebooks will work with below version of nemo curator. Install `nemo-curator` library in your enviroment.
+# Scripts and Guides Demonstrated During LLM Sessions 📘
 
-`pip install nemo-curator[all]==0.9.0`
+This repository contains the presentations, scripts, and guides used across multiple sessions on **LLM development**.  
+The folder structure is organized by session and includes notebooks as well as tutorial material.
+
+## Repository Structure
+
+- `casml-notebooks` — Notebooks demonstrated during the **CASML workshop on LLM development** by NVIDIA.
+- `CASML-IISc-Slides` — Presentation slides used by NVIDIA during the **CASML workshop**.
+
+## Installation ⚙️
+
+The notebooks in `casml-notebooks` are compatible with the following version of **NeMo Curator**.
+
+```bash
+pip install nemo-curator[all]==0.9.0
